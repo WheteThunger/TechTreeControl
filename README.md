@@ -1,9 +1,8 @@
 ## Features
 
 - Allows customizing research costs
-- Allows restricting specific blueprints
-- Allows skipping specific blueprints
-- Allows unlocking blueprints out of order
+- Allows restricting blueprints
+- Allows skipping blueprints
 
 ## How it works
 
@@ -32,8 +31,9 @@ Default configuration:
 
 - `ResearchCosts` -- This option allows you to override the vanilla research cost for any item based on it's short name. Only applies to the tech tree, not the research table. Applies to all players (not based on permission). See below for examples.
 - `BlueprintRulesets` -- This option allows you to control which blueprints players can unlock or skip based on player permission. See below for examples. Each ruleset defined here generates a permission of the format `techtreecontrol.ruleset.<name>`. Granting a ruleset to a player determines which blueprints they are allowed to unlock and/or skip. Granting multiple rulesets to a player will cause only the last to apply (based on the order in the config).
-  - `OptionalBlueprints` -- This list of item short names determines which blueprints are allowed to be skipped by players with this ruleset. Making a blueprint optional enables players to progress beyond it as though it is unlocked.
-  - `DisallowedBlueprints` -- This list of item short names determines which blueprints are not allowed to be unlocked by players with this ruleset. If you want to allow players to skip these, you should also add them to `OptionalBlueprints`, or else players will be prevented from advancing.
+  - `OptionalBlueprints` -- This list of item short names determines which blueprints are allowed to be skipped by players with this ruleset. Making a blueprint optional enables players to progress beyond it without unlocking it.
+  - `AllowedBlueprints` -- This list of item short names determines which blueprints are allowed to be unlocked by players with this ruleset. This is an alternative to `DisallowedBlueprints`.
+  - `DisallowedBlueprints` -- This list of item short names determines which blueprints are **not** allowed to be unlocked by players with this ruleset. If you want to allow players to skip these, you should also add them to `OptionalBlueprints`, or else players will be prevented from advancing. This option is ignored if `AllowedBlueprints` is defined in the ruleset.
   - `BlueprintsWithNoPrerequisites` -- This list of item short names determines which blueprints can be unlocked without unlocking any prior blueprints.
 
 Note: While this plugin allows players to skip blueprints in some cases, it won't be obvious to players that this is possible due to limitations in modding the UI.
@@ -57,10 +57,12 @@ Note: While this plugin allows players to skip blueprints in some cases, it won'
   "ResearchCosts": {},
   "BlueprintRulesets": [
     {
+      "Name": "disallowall",
+      "AllowedBlueprints": []
+    }
+    {
       "Name": "allowall",
-      "OptionalBlueprints": [],
-      "DisallowedBlueprints": [],
-      "BlueprintsWithNoPrerequisites": []
+      "DisallowedBlueprints": []
     },
     {
       "Name": "noexplosives",
@@ -82,6 +84,7 @@ Note: While this plugin allows players to skip blueprints in some cases, it won'
 ```
 
 The above example config would generate the following permissions.
+- `techtreecontrol.ruleset.disallowalll` -- Denies all blueprints from being unlocked.
 - `techtreecontrol.ruleset.allowall` -- Allows all blueprints to be unlocked.
 - `techtreecontrol.ruleset.noexplosives` -- Blocks most explosives from being unlocked.
 

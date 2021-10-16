@@ -9,7 +9,7 @@ using static TechTreeData;
 
 namespace Oxide.Plugins
 {
-    [Info("Tech Tree Control", "WhiteThunder", "0.1.0")]
+    [Info("Tech Tree Control", "WhiteThunder", "0.2.0")]
     [Description("Allows customizing Tech Tree research requirements.")]
     internal class TechTreeControl : CovalencePlugin
     {
@@ -189,8 +189,11 @@ namespace Oxide.Plugins
             [JsonProperty("OptionalBlueprints")]
             public HashSet<string> OptionalBlueprints = new HashSet<string>();
 
-            [JsonProperty("DisallowedBlueprints")]
-            public HashSet<string> DisallowedBlueprints = new HashSet<string>();
+            [JsonProperty("AllowedBlueprints", DefaultValueHandling = DefaultValueHandling.Ignore)]
+            public HashSet<string> AllowedBlueprints;
+
+            [JsonProperty("DisallowedBlueprints", DefaultValueHandling = DefaultValueHandling.Ignore)]
+            public HashSet<string> DisallowedBlueprints;
 
             [JsonProperty("BlueprintsWithNoPrerequisites")]
             public HashSet<string> BlueprintsWithNoPrerequisites = new HashSet<string>();
@@ -198,8 +201,16 @@ namespace Oxide.Plugins
             public bool HasPrerequisites(ItemDefinition itemDefinition) =>
                 !BlueprintsWithNoPrerequisites.Contains(itemDefinition.shortname);
 
-            public bool IsAllowed(ItemDefinition itemDefinition) =>
-                !DisallowedBlueprints.Contains(itemDefinition.shortname);
+            public bool IsAllowed(ItemDefinition itemDefinition)
+            {
+                if (AllowedBlueprints != null)
+                    return AllowedBlueprints.Contains(itemDefinition.shortname);
+
+                if (DisallowedBlueprints != null)
+                    return !DisallowedBlueprints.Contains(itemDefinition.shortname);
+
+                return true;
+            }
 
             public bool IsOptional(ItemDefinition itemDefinition) =>
                 OptionalBlueprints.Contains(itemDefinition.shortname);
