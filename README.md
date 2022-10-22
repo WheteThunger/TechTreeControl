@@ -47,7 +47,7 @@ Note: While this plugin allows players to skip blueprints in some cases, it won'
     "ammo.rocket.basic": 500
   },
   "BlueprintRulesets": []
-}
+},
 ```
 
 ### Example config using `BlueprintRulesets`
@@ -59,7 +59,7 @@ Note: While this plugin allows players to skip blueprints in some cases, it won'
     {
       "Name": "disallowall",
       "AllowedBlueprints": []
-    }
+    },
     {
       "Name": "allowall",
       "DisallowedBlueprints": []
