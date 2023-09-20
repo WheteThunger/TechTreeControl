@@ -84,7 +84,7 @@ Note: While this plugin allows players to skip blueprints in some cases, it won'
 ```
 
 The above example config would generate the following permissions.
-- `techtreecontrol.ruleset.disallowalll` -- Denies all blueprints from being unlocked.
+- `techtreecontrol.ruleset.disallowall` -- Denies all blueprints from being unlocked.
 - `techtreecontrol.ruleset.allowall` -- Allows all blueprints to be unlocked.
 - `techtreecontrol.ruleset.noexplosives` -- Blocks most explosives from being unlocked.
 
@@ -97,20 +97,3 @@ Not possible. That is all client-side.
 #### Is it possible to customize the displayed prices?
 
 Not possible. That is all client-side. Plugins cannot detect whether the tech tree is open, nor which tech tree node the player has selected. Plugins can only detect when a player clicks the button to unlock a specific blueprint.
-
-## Future development plans (when time permits)
-
-- Show a persistent UI message while the player is looting a workbench, which should state that the tech tree is modded, with the following details depending on the level of the workbench (and corresponding tech tree).
-  - List of optional blueprints
-  - List of disallowed blueprints
-  - List of price modifications
-  - Whether the player has permission to skip any blueprint
-- Show a brief UI message in the following situations.
-  - When a player is charged a non-vanilla price, show the amount they were charged.
-  - When the player fails to unlock a node that uses a non-vanilla price, show the amount required.
-  - When the player fails to unlock a node that is disallowed, clearly state that it is not allowed and whether it can be skipped.
-- Support for alternate items or currencies (Economics, Server Rewards)
-
-Please let me know if you would like support for the following features so that I can prioritize them.
-- Different prices based on player permission
-- Different prices when using the research table
