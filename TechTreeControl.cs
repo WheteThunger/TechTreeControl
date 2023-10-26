@@ -7,7 +7,7 @@ using static TechTreeData;
 
 namespace Oxide.Plugins
 {
-    [Info("Tech Tree Control", "WhiteThunder", "0.2.0")]
+    [Info("Tech Tree Control", "WhiteThunder", "0.3.0")]
     [Description("Allows customizing Tech Tree research requirements.")]
     internal class TechTreeControl : CovalencePlugin
     {
@@ -42,7 +42,10 @@ namespace Oxide.Plugins
                 return null;
 
             if (node.itemDef != null && !blueprintRuleset.IsAllowed(node.itemDef))
+            {
+                ChatMessage(player, blueprintRuleset.IsOptional(node.itemDef) ? LangEntry.BlueprintDisallowedOptional : LangEntry.BlueprintDisallowed);
                 return False;
+            }
 
             return null;
         }
@@ -372,6 +375,47 @@ namespace Oxide.Plugins
         }
 
         #endregion
+
+        #endregion
+
+        #region Localization
+
+        private class LangEntry
+        {
+            public static readonly List<LangEntry> AllLangEntries = new List<LangEntry>();
+
+            public static readonly LangEntry BlueprintDisallowed = new LangEntry("BlueprintDisallowed", "You don't have permission to unlock that blueprint.");
+            public static readonly LangEntry BlueprintDisallowedOptional = new LangEntry("BlueprintDisallowed.Optional", "You don't have permission to unlock that blueprint, but it can be skipped.");
+
+            public string Name;
+            public string English;
+
+            public LangEntry(string name, string english)
+            {
+                Name = name;
+                English = english;
+
+                AllLangEntries.Add(this);
+            }
+        }
+
+        private string GetMessage(string playerId, LangEntry langEntry) =>
+            lang.GetMessage(langEntry.Name, this, playerId);
+
+        private void ChatMessage(BasePlayer player, LangEntry langEntry) =>
+            player.ChatMessage(GetMessage(player.UserIDString, langEntry));
+
+        protected override void LoadDefaultMessages()
+        {
+            var englishLangKeys = new Dictionary<string, string>();
+
+            foreach (var langEntry in LangEntry.AllLangEntries)
+            {
+                englishLangKeys[langEntry.Name] = langEntry.English;
+            }
+
+            lang.RegisterMessages(englishLangKeys, this, "en");
+        }
 
         #endregion
     }

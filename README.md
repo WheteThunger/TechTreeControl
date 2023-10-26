@@ -6,7 +6,7 @@
 
 ## How it works
 
-It is not possible to customize the vanilla tech tree UI, but this plugin is able to detect when a player clicks on the "Unlock", "No Path" or "Can't Afford" buttons, in order to allow or disallow the unlock based on configurable criteria in this plugin.
+It is not possible to customize the vanilla tech tree UI, but this plugin is able to detect when a player clicks on the "Unlock", "No Path" or "Can't Afford" buttons, in order to allow or disallow the unlock based on configurable criteria in this plugin. When a player is prevented from unlocking a blueprint, a message will be printed to them in chat informing them of the reason and whether the blueprint can be skipped.
 
 ## Permissions
 
