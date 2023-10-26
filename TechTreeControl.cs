@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Linq;
+using Oxide.Core.Plugins;
 using static TechTreeData;
 
 namespace Oxide.Plugins
@@ -12,6 +13,9 @@ namespace Oxide.Plugins
     internal class TechTreeControl : CovalencePlugin
     {
         #region Fields
+
+        [PluginReference]
+        private readonly Plugin PopupNotifications;
 
         private const string PermissionAnyOrderLevel1 = "techtreecontrol.anyorder.level1";
         private const string PermissionAnyOrderLevel2 = "techtreecontrol.anyorder.level2";
@@ -35,6 +39,14 @@ namespace Oxide.Plugins
             _config.Init(this);
         }
 
+        private void OnServerInitialized()
+        {
+            if (_config.EnablePopupNotifications && PopupNotifications == null)
+            {
+                LogWarning("PopupNotifications integration is enabled in the config, but the PopupNotifications plugin isn't loaded.");
+            }
+        }
+
         private object CanUnlockTechTreeNode(BasePlayer player, NodeInstance node, TechTreeData techTree)
         {
             var blueprintRuleset = _config.GetPlayerBlueprintRuleset(this, player.UserIDString);
@@ -43,7 +55,21 @@ namespace Oxide.Plugins
 
             if (node.itemDef != null && !blueprintRuleset.IsAllowed(node.itemDef))
             {
-                ChatMessage(player, blueprintRuleset.IsOptional(node.itemDef) ? LangEntry.BlueprintDisallowedOptional : LangEntry.BlueprintDisallowed);
+                var message = GetMessage(player.UserIDString,
+                    blueprintRuleset.IsOptional(node.itemDef)
+                        ? LangEntry.BlueprintDisallowedOptional
+                        : LangEntry.BlueprintDisallowed);
+
+                if (_config.EnablePopupNotifications)
+                {
+                    PopupNotifications?.Call("CreatePopupNotification", message, player);
+                }
+
+                if (_config.EnableChatFeedback)
+                {
+                    player.ChatMessage(message);
+                }
+
                 return False;
             }
 
@@ -135,17 +161,29 @@ namespace Oxide.Plugins
             [JsonProperty("Name")]
             private string Name;
 
-            [JsonProperty("OptionalBlueprints")]
+            [JsonProperty("Optional blueprints")]
             private string[] OptionalBlueprints = Array.Empty<string>();
 
-            [JsonProperty("AllowedBlueprints", DefaultValueHandling = DefaultValueHandling.Ignore)]
+            [JsonProperty("OptionalBlueprints")]
+            private string[] DeprecatedOptionalBlueprints { set { OptionalBlueprints = value; } }
+
+            [JsonProperty("Allowed blueprints", DefaultValueHandling = DefaultValueHandling.Ignore)]
             private string[] AllowedBlueprints;
 
-            [JsonProperty("DisallowedBlueprints", DefaultValueHandling = DefaultValueHandling.Ignore)]
+            [JsonProperty("AllowedBlueprints")]
+            private string[] DeprecatedAllowedBlueprints { set { AllowedBlueprints = value; } }
+
+            [JsonProperty("Disallowed blueprints", DefaultValueHandling = DefaultValueHandling.Ignore)]
             private string[] DisallowedBlueprints;
 
-            [JsonProperty("BlueprintsWithNoPrerequisites")]
+            [JsonProperty("DisallowedBlueprints")]
+            private string[] DeprecatedDisallowedBlueprints { set { DisallowedBlueprints = value; } }
+
+            [JsonProperty("Blueprints with no prerequisites")]
             private string[] BlueprintsWithNoPrerequisites = Array.Empty<string>();
+
+            [JsonProperty("BlueprintsWithNoPrerequisites")]
+            private string[] DeprecatedBlueprintsWithNoPrerequisites { set { BlueprintsWithNoPrerequisites = value; } }
 
             public string Permission { get; private set; }
             private HashSet<int> _optionalBlueprints = new HashSet<int>();
@@ -210,11 +248,23 @@ namespace Oxide.Plugins
         [JsonObject(MemberSerialization.OptIn)]
         private class Configuration : BaseConfiguration
         {
-            [JsonProperty("ResearchCosts")]
+            [JsonProperty("Enable chat feedback")]
+            public bool EnableChatFeedback = true;
+
+            [JsonProperty("Enable PopupNotifications integration")]
+            public bool EnablePopupNotifications;
+
+            [JsonProperty("Research costs")]
             private Dictionary<string, int> ResearchCosts = new Dictionary<string, int>();
 
-            [JsonProperty("BlueprintRulesets")]
+            [JsonProperty("ResearchCosts")]
+            private Dictionary<string, int> DeprecatedResearchCosts { set { ResearchCosts = value; } }
+
+            [JsonProperty("Blueprint rulesets")]
             private BlueprintRuleset[] BlueprintRulesets = Array.Empty<BlueprintRuleset>();
+
+            [JsonProperty("BlueprintRulesets")]
+            private BlueprintRuleset[] DeprecatedBlueprintRulesets { set { BlueprintRulesets = value; } }
 
             private Dictionary<int, object> _researchCostByItemId = new Dictionary<int, object>();
 
