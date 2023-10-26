@@ -130,22 +130,25 @@ namespace Oxide.Plugins
             public static readonly BlueprintRuleset DefaultRuleset = new BlueprintRuleset();
 
             [JsonProperty("Name")]
-            public string Name;
+            private string Name;
 
             [JsonProperty("OptionalBlueprints")]
-            public HashSet<string> OptionalBlueprints = new HashSet<string>();
+            private string[] OptionalBlueprints = Array.Empty<string>();
 
             [JsonProperty("AllowedBlueprints", DefaultValueHandling = DefaultValueHandling.Ignore)]
-            public HashSet<string> AllowedBlueprints;
+            private string[] AllowedBlueprints;
 
             [JsonProperty("DisallowedBlueprints", DefaultValueHandling = DefaultValueHandling.Ignore)]
-            public HashSet<string> DisallowedBlueprints;
+            private string[] DisallowedBlueprints;
 
             [JsonProperty("BlueprintsWithNoPrerequisites")]
-            public HashSet<string> BlueprintsWithNoPrerequisites = new HashSet<string>();
+            private string[] BlueprintsWithNoPrerequisites = Array.Empty<string>();
 
-            [JsonIgnore]
             public string Permission { get; private set; }
+            private HashSet<int> _optionalBlueprints = new HashSet<int>();
+            private HashSet<int> _allowedBlueprints = new HashSet<int>();
+            private HashSet<int> _disallowedBlueprints = new HashSet<int>();
+            private HashSet<int> _blueprintsWithNoPrerequisites = new HashSet<int>();
 
             public void Init(TechTreeControl plugin)
             {
@@ -154,27 +157,50 @@ namespace Oxide.Plugins
                     Permission = $"{nameof(TechTreeControl)}.ruleset.{Name}".ToLower();
                     plugin.permission.RegisterPermission(Permission, plugin);
                 }
+
+                CacheItemIds(plugin, OptionalBlueprints, _optionalBlueprints);
+                CacheItemIds(plugin, AllowedBlueprints, _allowedBlueprints);
+                CacheItemIds(plugin, DisallowedBlueprints, _disallowedBlueprints);
+                CacheItemIds(plugin, BlueprintsWithNoPrerequisites, _blueprintsWithNoPrerequisites);
             }
 
             public bool HasPrerequisites(ItemDefinition itemDefinition)
             {
-                return !BlueprintsWithNoPrerequisites.Contains(itemDefinition.shortname);
+                return !_blueprintsWithNoPrerequisites.Contains(itemDefinition.itemid);
             }
 
             public bool IsAllowed(ItemDefinition itemDefinition)
             {
                 if (AllowedBlueprints != null)
-                    return AllowedBlueprints.Contains(itemDefinition.shortname);
+                    return _allowedBlueprints.Contains(itemDefinition.itemid);
 
                 if (DisallowedBlueprints != null)
-                    return !DisallowedBlueprints.Contains(itemDefinition.shortname);
+                    return !_disallowedBlueprints.Contains(itemDefinition.itemid);
 
                 return true;
             }
 
             public bool IsOptional(ItemDefinition itemDefinition)
             {
-                return OptionalBlueprints.Contains(itemDefinition.shortname);
+                return _optionalBlueprints.Contains(itemDefinition.itemid);
+            }
+
+            private static void CacheItemIds(TechTreeControl plugin, IEnumerable<string> shortNameList, HashSet<int> cachedItemIds)
+            {
+                if (shortNameList == null)
+                    return;
+
+                foreach (var itemShortName in shortNameList)
+                {
+                    var itemDefinition = ItemManager.FindItemDefinition(itemShortName);
+                    if (itemDefinition == null)
+                    {
+                        plugin.LogError($"Invalid item short name in config: {itemShortName}");
+                        continue;
+                    }
+
+                    cachedItemIds.Add(itemDefinition.itemid);
+                }
             }
         }
 
@@ -182,10 +208,12 @@ namespace Oxide.Plugins
         private class Configuration : BaseConfiguration
         {
             [JsonProperty("ResearchCosts")]
-            public Dictionary<string, int> ResearchCosts = new Dictionary<string, int>();
+            private Dictionary<string, int> ResearchCosts = new Dictionary<string, int>();
 
             [JsonProperty("BlueprintRulesets")]
-            public BlueprintRuleset[] BlueprintRulesets = Array.Empty<BlueprintRuleset>();
+            private BlueprintRuleset[] BlueprintRulesets = Array.Empty<BlueprintRuleset>();
+
+            private Dictionary<int, object> _researchCostByItemId = new Dictionary<int, object>();
 
             public void Init(TechTreeControl plugin)
             {
@@ -196,17 +224,29 @@ namespace Oxide.Plugins
                         ruleset.Init(plugin);
                     }
                 }
+
+                if (ResearchCosts != null)
+                {
+                    foreach (var entry in ResearchCosts)
+                    {
+                        var itemDefinition = ItemManager.FindItemDefinition(entry.Key);
+                        if (itemDefinition == null)
+                        {
+                            plugin.LogError($"Invalid item short name in config: {entry.Key}");
+                            continue;
+                        }
+
+                        _researchCostByItemId[itemDefinition.itemid] = entry.Value;
+                    }
+                }
             }
 
-            public int? GetResearchCostOverride(ItemDefinition itemDefinition)
+            public object GetResearchCostOverride(ItemDefinition itemDefinition)
             {
-                foreach (var entry in ResearchCosts)
-                {
-                    if (entry.Key == itemDefinition.shortname)
-                        return entry.Value;
-                }
-
-                return null;
+                object costOverride;
+                return _researchCostByItemId.TryGetValue(itemDefinition.itemid, out costOverride)
+                    ? costOverride
+                    : null;
             }
 
             public BlueprintRuleset GetPlayerBlueprintRuleset(TechTreeControl plugin, string userIdString)
