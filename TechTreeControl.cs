@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
 using System.Linq;
+using Oxide.Core;
 using Oxide.Core.Plugins;
 using static TechTreeData;
 
@@ -37,6 +38,11 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionAnyOrderLevel3, this);
 
             _config.Init(this);
+
+            if (!_config.IsCustomCurrencyEnabledAndValid)
+            {
+                Unsubscribe(nameof(OnTechTreeNodeUnlock));
+            }
         }
 
         private void OnServerInitialized()
@@ -45,6 +51,25 @@ namespace Oxide.Plugins
             {
                 LogWarning("PopupNotifications integration is enabled in the config, but the PopupNotifications plugin isn't loaded.");
             }
+        }
+
+        private object OnTechTreeNodeUnlock(Workbench workbench, NodeInstance node, BasePlayer player)
+        {
+            var currencyAmountOverride = _config.GetResearchCostOverride(node.itemDef);
+            if (currencyAmountOverride is not int currencyAmount)
+            {
+                currencyAmount = ResearchTable.ScrapForResearch(node.itemDef, ResearchTable.ResearchType.TechTree);
+            }
+
+            var itemid = _config.CustomCurrency.ItemId;
+            if (player.inventory.GetAmount(itemid) >= currencyAmount)
+            {
+                player.inventory.Take(null, itemid, currencyAmount);
+                player.blueprints.Unlock(node.itemDef);
+                Interface.CallHook("OnTechTreeNodeUnlocked", workbench, node, player);
+            }
+
+            return false;
         }
 
         private object CanUnlockTechTreeNode(BasePlayer player, NodeInstance node, TechTreeData techTree)
@@ -103,6 +128,9 @@ namespace Oxide.Plugins
 
         #region Helper Methods
 
+        public static void LogError(string message) => Interface.Oxide.LogError($"[Tech Tree Control] {message}");
+        public static void LogWarning(string message) => Interface.Oxide.LogWarning($"[Tech Tree Control] {message}");
+
         private static bool HasUnlockPath(BasePlayer player, NodeInstance node, TechTreeData techTree, BlueprintRuleset blueprintRuleset)
         {
             if (node.inputs.Count == 0)
@@ -154,6 +182,38 @@ namespace Oxide.Plugins
         #region Configuration
 
         [JsonObject(MemberSerialization.OptIn)]
+        private class CustomCurrency
+        {
+            [JsonProperty("Enabled")]
+            public bool Enabled;
+
+            [JsonProperty("Item short name")]
+            public string ItemShortName = "scrap";
+
+            [JsonIgnore]
+            public int ItemId;
+
+            [JsonIgnore]
+            public bool IsEnabledAndValid => Enabled && ItemId != 0;
+
+            public void Init()
+            {
+                if (!Enabled)
+                    return;
+
+                var itemDefinition = ItemManager.FindItemDefinition(ItemShortName);
+                if (itemDefinition == null)
+                {
+                    LogWarning($"Invalid item short name in config: {ItemShortName}");
+                }
+                else
+                {
+                    ItemId = itemDefinition.itemid;
+                }
+            }
+        }
+
+        [JsonObject(MemberSerialization.OptIn)]
         private class BlueprintRuleset
         {
             public static readonly BlueprintRuleset DefaultRuleset = new();
@@ -199,10 +259,10 @@ namespace Oxide.Plugins
                     plugin.permission.RegisterPermission(Permission, plugin);
                 }
 
-                CacheItemIds(plugin, OptionalBlueprints, _optionalBlueprints);
-                CacheItemIds(plugin, AllowedBlueprints, _allowedBlueprints);
-                CacheItemIds(plugin, DisallowedBlueprints, _disallowedBlueprints);
-                CacheItemIds(plugin, BlueprintsWithNoPrerequisites, _blueprintsWithNoPrerequisites);
+                CacheItemIds(OptionalBlueprints, _optionalBlueprints);
+                CacheItemIds(AllowedBlueprints, _allowedBlueprints);
+                CacheItemIds(DisallowedBlueprints, _disallowedBlueprints);
+                CacheItemIds(BlueprintsWithNoPrerequisites, _blueprintsWithNoPrerequisites);
             }
 
             public bool HasPrerequisites(ItemDefinition itemDefinition)
@@ -226,7 +286,7 @@ namespace Oxide.Plugins
                 return _optionalBlueprints.Contains(itemDefinition.itemid);
             }
 
-            private static void CacheItemIds(TechTreeControl plugin, IEnumerable<string> shortNameList, HashSet<int> cachedItemIds)
+            private static void CacheItemIds(IEnumerable<string> shortNameList, HashSet<int> cachedItemIds)
             {
                 if (shortNameList == null)
                     return;
@@ -236,7 +296,7 @@ namespace Oxide.Plugins
                     var itemDefinition = ItemManager.FindItemDefinition(itemShortName);
                     if (itemDefinition == null)
                     {
-                        plugin.LogError($"Invalid item short name in config: {itemShortName}");
+                        LogError($"Invalid item short name in config: {itemShortName}");
                         continue;
                     }
 
@@ -257,6 +317,9 @@ namespace Oxide.Plugins
             [JsonProperty("Research costs")]
             private Dictionary<string, int> ResearchCosts = new();
 
+            [JsonProperty("Custom currency")]
+            public CustomCurrency CustomCurrency = new();
+
             [JsonProperty("ResearchCosts")]
             private Dictionary<string, int> DeprecatedResearchCosts { set => ResearchCosts = value; }
 
@@ -268,8 +331,13 @@ namespace Oxide.Plugins
 
             private Dictionary<int, object> _researchCostByItemId = new();
 
+            [JsonIgnore]
+            public bool IsCustomCurrencyEnabledAndValid => CustomCurrency is { IsEnabledAndValid: true };
+
             public void Init(TechTreeControl plugin)
             {
+                CustomCurrency?.Init();
+
                 if (BlueprintRulesets != null)
                 {
                     foreach (var ruleset in BlueprintRulesets)
@@ -285,7 +353,7 @@ namespace Oxide.Plugins
                         var itemDefinition = ItemManager.FindItemDefinition(entry.Key);
                         if (itemDefinition == null)
                         {
-                            plugin.LogError($"Invalid item short name in config: {entry.Key}");
+                            LogError($"Invalid item short name in config: {entry.Key}");
                             continue;
                         }
 

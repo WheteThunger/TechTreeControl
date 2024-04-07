@@ -27,6 +27,10 @@ Default configuration:
   "Enable chat feedback": true,
   "Enable PopupNotifications integration": false,
   "Research costs": {},
+  "Custom currency": {
+    "Enabled": false,
+    "Item short name": "scrap"
+  },
   "Blueprint rulesets": []
 }
 ```
@@ -34,6 +38,9 @@ Default configuration:
 - `Enable chat feedback` (`true` or `false`) -- While `true`, players will receive feedback in chat when failing to unlock a blueprint that isn't allowed. Note: The player will not see the chat message until they close the tech tree.
 - `Enable PopupNotifications integration` (`true` or `false`) -- While `true`, players will receive feedback via the Popup Notifications plugin when failing to unlock a blueprint that isn't allowed.
 - `Research costs` -- This option allows you to override the vanilla research cost for any item based on it's short name. Only applies to the tech tree, not the research table. Applies to all players (not based on permission). See below for examples.
+- `Custom currency` -- This option allows you to change the currency required to unlock blueprints via the tech tree.
+  - `Enabled` (`true` or `false`) -- While `true`, the custom currency item (`Item short name` below) will be used.
+  - `Item short name` -- The short name of the item to use instead of scrap.
 - `Blueprint rulesets` -- This option allows you to control which blueprints players can unlock or skip based on player permission. See below for examples. Each ruleset defined here generates a permission of the format `techtreecontrol.ruleset.<name>`. Granting a ruleset to a player determines which blueprints they are allowed to unlock and/or skip. Granting multiple rulesets to a player will cause only the last to apply (based on the order in the config).
   - `Optional blueprints` -- This list of item short names determines which blueprints are allowed to be skipped by players with this ruleset. Making a blueprint optional enables players to progress beyond it without unlocking it.
   - `Allowed blueprints` -- This list of item short names determines which blueprints are allowed to be unlocked by players with this ruleset. This is an alternative to `Disallowed blueprints`.
@@ -83,7 +90,7 @@ Note: While this plugin allows players to skip blueprints in some cases, it won'
         "ammo.rifle.explosive",
         "explosive.satchel",
         "explosive.timed",
-        "explosives",
+        "explosives"
       ],
       "Blueprints with no prerequisites": []
     }
