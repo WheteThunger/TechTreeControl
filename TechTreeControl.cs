@@ -156,7 +156,7 @@ namespace Oxide.Plugins
         [JsonObject(MemberSerialization.OptIn)]
         private class BlueprintRuleset
         {
-            public static readonly BlueprintRuleset DefaultRuleset = new BlueprintRuleset();
+            public static readonly BlueprintRuleset DefaultRuleset = new();
 
             [JsonProperty("Name")]
             private string Name;
@@ -165,31 +165,31 @@ namespace Oxide.Plugins
             private string[] OptionalBlueprints = Array.Empty<string>();
 
             [JsonProperty("OptionalBlueprints")]
-            private string[] DeprecatedOptionalBlueprints { set { OptionalBlueprints = value; } }
+            private string[] DeprecatedOptionalBlueprints { set => OptionalBlueprints = value; }
 
             [JsonProperty("Allowed blueprints", DefaultValueHandling = DefaultValueHandling.Ignore)]
             private string[] AllowedBlueprints;
 
             [JsonProperty("AllowedBlueprints")]
-            private string[] DeprecatedAllowedBlueprints { set { AllowedBlueprints = value; } }
+            private string[] DeprecatedAllowedBlueprints { set => AllowedBlueprints = value; }
 
             [JsonProperty("Disallowed blueprints", DefaultValueHandling = DefaultValueHandling.Ignore)]
             private string[] DisallowedBlueprints;
 
             [JsonProperty("DisallowedBlueprints")]
-            private string[] DeprecatedDisallowedBlueprints { set { DisallowedBlueprints = value; } }
+            private string[] DeprecatedDisallowedBlueprints { set => DisallowedBlueprints = value; }
 
             [JsonProperty("Blueprints with no prerequisites")]
             private string[] BlueprintsWithNoPrerequisites = Array.Empty<string>();
 
             [JsonProperty("BlueprintsWithNoPrerequisites")]
-            private string[] DeprecatedBlueprintsWithNoPrerequisites { set { BlueprintsWithNoPrerequisites = value; } }
+            private string[] DeprecatedBlueprintsWithNoPrerequisites { set => BlueprintsWithNoPrerequisites = value; }
 
             public string Permission { get; private set; }
-            private HashSet<int> _optionalBlueprints = new HashSet<int>();
-            private HashSet<int> _allowedBlueprints = new HashSet<int>();
-            private HashSet<int> _disallowedBlueprints = new HashSet<int>();
-            private HashSet<int> _blueprintsWithNoPrerequisites = new HashSet<int>();
+            private HashSet<int> _optionalBlueprints = new();
+            private HashSet<int> _allowedBlueprints = new();
+            private HashSet<int> _disallowedBlueprints = new();
+            private HashSet<int> _blueprintsWithNoPrerequisites = new();
 
             public void Init(TechTreeControl plugin)
             {
@@ -255,18 +255,18 @@ namespace Oxide.Plugins
             public bool EnablePopupNotifications;
 
             [JsonProperty("Research costs")]
-            private Dictionary<string, int> ResearchCosts = new Dictionary<string, int>();
+            private Dictionary<string, int> ResearchCosts = new();
 
             [JsonProperty("ResearchCosts")]
-            private Dictionary<string, int> DeprecatedResearchCosts { set { ResearchCosts = value; } }
+            private Dictionary<string, int> DeprecatedResearchCosts { set => ResearchCosts = value; }
 
             [JsonProperty("Blueprint rulesets")]
             private BlueprintRuleset[] BlueprintRulesets = Array.Empty<BlueprintRuleset>();
 
             [JsonProperty("BlueprintRulesets")]
-            private BlueprintRuleset[] DeprecatedBlueprintRulesets { set { BlueprintRulesets = value; } }
+            private BlueprintRuleset[] DeprecatedBlueprintRulesets { set => BlueprintRulesets = value; }
 
-            private Dictionary<int, object> _researchCostByItemId = new Dictionary<int, object>();
+            private Dictionary<int, object> _researchCostByItemId = new();
 
             public void Init(TechTreeControl plugin)
             {
@@ -296,8 +296,7 @@ namespace Oxide.Plugins
 
             public object GetResearchCostOverride(ItemDefinition itemDefinition)
             {
-                object costOverride;
-                return _researchCostByItemId.TryGetValue(itemDefinition.itemid, out costOverride)
+                return _researchCostByItemId.TryGetValue(itemDefinition.itemid, out var costOverride)
                     ? costOverride
                     : null;
             }
@@ -319,7 +318,7 @@ namespace Oxide.Plugins
             }
         }
 
-        private Configuration GetDefaultConfig() => new Configuration();
+        private Configuration GetDefaultConfig() => new();
 
         #region Configuration Helpers
 
@@ -365,13 +364,11 @@ namespace Oxide.Plugins
 
             foreach (var key in currentWithDefaults.Keys)
             {
-                object currentRawValue;
-                if (currentRaw.TryGetValue(key, out currentRawValue))
+                if (currentRaw.TryGetValue(key, out var currentRawValue))
                 {
-                    var defaultDictValue = currentWithDefaults[key] as Dictionary<string, object>;
                     var currentDictValue = currentRawValue as Dictionary<string, object>;
 
-                    if (defaultDictValue != null)
+                    if (currentWithDefaults[key] is Dictionary<string, object> defaultDictValue)
                     {
                         if (currentDictValue == null)
                         {
@@ -379,7 +376,9 @@ namespace Oxide.Plugins
                             changed = true;
                         }
                         else if (MaybeUpdateConfigDict(defaultDictValue, currentDictValue))
+                        {
                             changed = true;
+                        }
                     }
                 }
                 else
@@ -432,10 +431,10 @@ namespace Oxide.Plugins
 
         private class LangEntry
         {
-            public static readonly List<LangEntry> AllLangEntries = new List<LangEntry>();
+            public static readonly List<LangEntry> AllLangEntries = new();
 
-            public static readonly LangEntry BlueprintDisallowed = new LangEntry("BlueprintDisallowed", "You don't have permission to unlock that blueprint.");
-            public static readonly LangEntry BlueprintDisallowedOptional = new LangEntry("BlueprintDisallowed.Optional", "You don't have permission to unlock that blueprint, but it can be skipped.");
+            public static readonly LangEntry BlueprintDisallowed = new("BlueprintDisallowed", "You don't have permission to unlock that blueprint.");
+            public static readonly LangEntry BlueprintDisallowedOptional = new("BlueprintDisallowed.Optional", "You don't have permission to unlock that blueprint, but it can be skipped.");
 
             public string Name;
             public string English;
