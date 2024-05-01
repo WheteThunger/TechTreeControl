@@ -5,11 +5,12 @@ using System.Collections.Generic;
 using System.Linq;
 using Oxide.Core;
 using Oxide.Core.Plugins;
+using UnityEngine;
 using static TechTreeData;
 
 namespace Oxide.Plugins
 {
-    [Info("Tech Tree Control", "WhiteThunder", "0.3.0")]
+    [Info("Tech Tree Control", "WhiteThunder", "0.4.0")]
     [Description("Allows customizing Tech Tree research requirements.")]
     internal class TechTreeControl : CovalencePlugin
     {
@@ -56,9 +57,18 @@ namespace Oxide.Plugins
         private object OnTechTreeNodeUnlock(Workbench workbench, NodeInstance node, BasePlayer player)
         {
             var currencyAmountOverride = _config.GetResearchCostOverride(node.itemDef);
-            if (currencyAmountOverride is not int currencyAmount)
+            if (currencyAmountOverride is int currencyAmount)
             {
-                currencyAmount = ResearchTable.ScrapForResearch(node.itemDef, ResearchTable.ResearchType.TechTree);
+                var taxRate = ConVar.Server.GetTaxRateForWorkbenchUnlock(workbench.Workbenchlevel);
+                if (taxRate > 0)
+                {
+                    currencyAmount += Mathf.CeilToInt(currencyAmount * (taxRate / 100f));
+                }
+            }
+            else
+            {
+                currencyAmount = Workbench.ScrapForResearch(node.itemDef, workbench.Workbenchlevel, out var tax);
+                currencyAmount += tax;
             }
 
             var itemid = _config.CustomCurrency.ItemId;
@@ -69,7 +79,7 @@ namespace Oxide.Plugins
                 Interface.CallHook("OnTechTreeNodeUnlocked", workbench, node, player);
             }
 
-            return false;
+            return False;
         }
 
         private object CanUnlockTechTreeNode(BasePlayer player, NodeInstance node, TechTreeData techTree)

@@ -37,7 +37,7 @@ Default configuration:
 
 - `Enable chat feedback` (`true` or `false`) -- While `true`, players will receive feedback in chat when failing to unlock a blueprint that isn't allowed. Note: The player will not see the chat message until they close the tech tree.
 - `Enable PopupNotifications integration` (`true` or `false`) -- While `true`, players will receive feedback via the Popup Notifications plugin when failing to unlock a blueprint that isn't allowed.
-- `Research costs` -- This option allows you to override the vanilla research cost for any item based on it's short name. Only applies to the tech tree, not the research table. Applies to all players (not based on permission). See below for examples.
+- `Research costs` -- This option allows you to override the vanilla research cost for any item based on it's short name. Only applies to the tech tree, not the research table. Applies to all players (not based on permission). See below for examples. Note: Players must still pay workbench tax rates.
 - `Custom currency` -- This option allows you to change the currency required to unlock blueprints via the tech tree.
   - `Enabled` (`true` or `false`) -- While `true`, the custom currency item (`Item short name` below) will be used.
   - `Item short name` -- The short name of the item to use instead of scrap.
