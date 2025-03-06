@@ -15,6 +15,7 @@ The following permissions allow players to unlock blueprints in any order.
 - `techtreecontrol.anyorder.level1` -- Applies to the level 1 workbench.
 - `techtreecontrol.anyorder.level2` -- Applies to the level 2 workbench.
 - `techtreecontrol.anyorder.level3` -- Applies to the level 3 workbench.
+- `techtreecontrol.anyorder.io` -- Applies to the IO engineering workbench.
 
 Additional permissions will be generated based on the plugin configuration, which can allow specific blueprints to be restricted and/or skipped. See the configuration section for details.
 

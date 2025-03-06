@@ -10,7 +10,7 @@ using static TechTreeData;
 
 namespace Oxide.Plugins
 {
-    [Info("Tech Tree Control", "WhiteThunder", "0.4.0")]
+    [Info("Tech Tree Control", "WhiteThunder", "0.5.0")]
     [Description("Allows customizing Tech Tree research requirements.")]
     internal class TechTreeControl : CovalencePlugin
     {
@@ -22,6 +22,7 @@ namespace Oxide.Plugins
         private const string PermissionAnyOrderLevel1 = "techtreecontrol.anyorder.level1";
         private const string PermissionAnyOrderLevel2 = "techtreecontrol.anyorder.level2";
         private const string PermissionAnyOrderLevel3 = "techtreecontrol.anyorder.level3";
+        private const string PermissionAnyOrderIO = "techtreecontrol.anyorder.io";
 
         private readonly object True = true;
         private readonly object False = false;
@@ -37,6 +38,7 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionAnyOrderLevel1, this);
             permission.RegisterPermission(PermissionAnyOrderLevel2, this);
             permission.RegisterPermission(PermissionAnyOrderLevel3, this);
+            permission.RegisterPermission(PermissionAnyOrderIO, this);
 
             _config.Init(this);
 
@@ -183,6 +185,9 @@ namespace Oxide.Plugins
 
             if (techTree.name == "TechTreeT0")
                 return permission.UserHasPermission(player.UserIDString, PermissionAnyOrderLevel1);
+
+            if (techTree.name == "TechTreeIO")
+                return permission.UserHasPermission(player.UserIDString, PermissionAnyOrderIO);
 
             return false;
         }
