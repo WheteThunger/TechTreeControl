@@ -10,7 +10,7 @@ using static TechTreeData;
 
 namespace Oxide.Plugins
 {
-    [Info("Tech Tree Control", "WhiteThunder", "0.5.0")]
+    [Info("Tech Tree Control", "WhiteThunder", "0.6.0")]
     [Description("Allows customizing Tech Tree research requirements.")]
     internal class TechTreeControl : CovalencePlugin
     {
@@ -24,7 +24,6 @@ namespace Oxide.Plugins
         private const string PermissionAnyOrderLevel3 = "techtreecontrol.anyorder.level3";
         private const string PermissionAnyOrderIO = "techtreecontrol.anyorder.io";
 
-        private readonly object True = true;
         private readonly object False = false;
 
         private Configuration _config;
@@ -41,11 +40,6 @@ namespace Oxide.Plugins
             permission.RegisterPermission(PermissionAnyOrderIO, this);
 
             _config.Init(this);
-
-            if (!_config.IsCustomCurrencyEnabledAndValid)
-            {
-                Unsubscribe(nameof(OnTechTreeNodeUnlock));
-            }
         }
 
         private void OnServerInitialized()
@@ -56,79 +50,121 @@ namespace Oxide.Plugins
             }
         }
 
-        private object OnTechTreeNodeUnlock(Workbench workbench, NodeInstance node, BasePlayer player)
+        private object OnTechTreeNodeUnlock(Workbench workbench, NodeInstance requestedNode, BasePlayer player)
         {
-            var currencyAmountOverride = _config.GetResearchCostOverride(node.itemDef);
-            if (currencyAmountOverride is int currencyAmount)
+            var techTree = FindTechTreeForNode(workbench, requestedNode);
+            if (techTree == null || requestedNode.itemDef == null)
+                return null;
+
+            var blueprintRuleset = _config.GetPlayerBlueprintRuleset(this, player.UserIDString);
+            var hasAnyOrderPermission = HasPermissionToUnlockAny(player, techTree);
+
+            // Get all nodes required to unlock (including intermediate nodes).
+            using var nodesToUnlock = Facepunch.Pool.Get<PooledList<NodeInstance>>();
+            techTree.GetNodesRequiredToUnlock(player, requestedNode, nodesToUnlock);
+
+            // Remove nodes that are already unlocked or have no itemDef (vanilla behavior).
+            for (var i = nodesToUnlock.Count - 1; i >= 0; i--)
             {
-                var taxRate = ConVar.Server.GetTaxRateForWorkbenchUnlock(workbench.Workbenchlevel);
-                if (taxRate > 0)
+                var nodeToCheck = nodesToUnlock[i];
+                if (nodeToCheck.itemDef == null || player.blueprints.HasUnlocked(nodeToCheck.itemDef))
                 {
-                    currencyAmount += Mathf.CeilToInt(currencyAmount * (taxRate / 100f));
+                    nodesToUnlock.RemoveAt(i);
                 }
             }
-            else
+
+            // If player has "any order" permission or doesn't need prerequisites for the target node,
+            // only unlock the target node (skip intermediate nodes).
+            if (hasAnyOrderPermission || (blueprintRuleset != null && !blueprintRuleset.HasPrerequisites(requestedNode.itemDef)))
             {
-                currencyAmount = Workbench.ScrapForResearch(node.itemDef, workbench.Workbenchlevel, out var tax);
-                currencyAmount += tax;
+                nodesToUnlock.Clear();
+                nodesToUnlock.Add(requestedNode);
             }
 
-            var itemid = _config.CustomCurrency.ItemId;
-            if (player.inventory.GetAmount(itemid) >= currencyAmount)
+            // Check if all nodes are allowed by the ruleset.
+            if (blueprintRuleset != null)
             {
-                player.inventory.Take(null, itemid, currencyAmount);
-                player.blueprints.Unlock(node.itemDef);
-                Interface.CallHook("OnTechTreeNodeUnlocked", workbench, node, player);
+                if (blueprintRuleset.HasOptionals)
+                {
+                    // Remove intermediate optional nodes (besides the requested one) before checking blocked nodes.
+                    // Players will have to manually unlock allowed optional nodes.
+                    for (var i = nodesToUnlock.Count - 1; i >= 0; i--)
+                    {
+                        var nodeToCheck = nodesToUnlock[i];
+                        if (nodeToCheck != requestedNode && blueprintRuleset.IsOptional(nodeToCheck.itemDef))
+                        {
+                            nodesToUnlock.RemoveAt(i);
+                        }
+                    }
+                }
+
+                foreach (var nodeToCheck in nodesToUnlock)
+                {
+                    if (blueprintRuleset.IsAllowed(nodeToCheck.itemDef))
+                        continue;
+
+                    var message = GetMessage(player.UserIDString,
+                        blueprintRuleset.IsOptional(nodeToCheck.itemDef)
+                            ? LangEntry.BlueprintDisallowedOptional
+                            : LangEntry.BlueprintDisallowed);
+
+                    if (_config.EnablePopupNotifications)
+                    {
+                        PopupNotifications?.Call("CreatePopupNotification", message, player);
+                    }
+
+                    if (_config.EnableChatFeedback)
+                    {
+                        player.ChatMessage(message);
+                    }
+
+                    return False;
+                }
+            }
+
+            var totalCost = DetermineUnlockCost(techTree, nodesToUnlock, out var currencyItemId);
+
+            // Check if player has enough currency.
+            if (player.inventory.GetAmount(currencyItemId) < totalCost)
+                return False;
+
+            // Take currency.
+            if (totalCost > 0)
+            {
+                player.inventory.Take(null, currencyItemId, totalCost);
+            }
+
+            using var unlockedItemDefinitions = Facepunch.Pool.Get<PooledList<ItemDefinition>>();
+            foreach (var nodeToUnlock in nodesToUnlock)
+            {
+                unlockedItemDefinitions.Add(nodeToUnlock.itemDef);
+
+                if (nodeToUnlock.IsGroup())
+                {
+                    foreach (var outputId in nodeToUnlock.outputs)
+                    {
+                        var outputNode = techTree.GetByID(outputId);
+                        if (outputNode != null && outputNode.itemDef != null)
+                        {
+                            player.blueprints.Unlock(outputNode.itemDef);
+                        }
+                    }
+                }
+            }
+
+            if (unlockedItemDefinitions.Count > 0)
+            {
+                // Call hooks to match default behavior.
+                player.blueprints.UnlockList(unlockedItemDefinitions);
+                Interface.CallHook("OnTechTreeNodeUnlocked", workbench, requestedNode, player, unlockedItemDefinitions);
+
+                foreach (var itemDefinition in unlockedItemDefinitions)
+                {
+                    Interface.CallHook("OnTechTreeNodeUnlocked", workbench, itemDefinition, player);
+                }
             }
 
             return False;
-        }
-
-        private object CanUnlockTechTreeNode(BasePlayer player, NodeInstance node, TechTreeData techTree)
-        {
-            var blueprintRuleset = _config.GetPlayerBlueprintRuleset(this, player.UserIDString);
-            if (blueprintRuleset == null)
-                return null;
-
-            if (node.itemDef != null && !blueprintRuleset.IsAllowed(node.itemDef))
-            {
-                var message = GetMessage(player.UserIDString,
-                    blueprintRuleset.IsOptional(node.itemDef)
-                        ? LangEntry.BlueprintDisallowedOptional
-                        : LangEntry.BlueprintDisallowed);
-
-                if (_config.EnablePopupNotifications)
-                {
-                    PopupNotifications?.Call("CreatePopupNotification", message, player);
-                }
-
-                if (_config.EnableChatFeedback)
-                {
-                    player.ChatMessage(message);
-                }
-
-                return False;
-            }
-
-            return null;
-        }
-
-        private object CanUnlockTechTreeNodePath(BasePlayer player, NodeInstance node, TechTreeData techTree)
-        {
-            if (HasPermissionToUnlockAny(player, techTree))
-                return True;
-
-            var blueprintRuleset = _config.GetPlayerBlueprintRuleset(this, player.UserIDString);
-            if (blueprintRuleset == null)
-                return null;
-
-            if (node.itemDef != null && !blueprintRuleset.HasPrerequisites(node.itemDef))
-                return True;
-
-            if (HasUnlockPath(player, node, techTree, blueprintRuleset))
-                return True;
-
-            return null;
         }
 
         private object OnResearchCostDetermine(ItemDefinition itemDefinition)
@@ -143,36 +179,20 @@ namespace Oxide.Plugins
         public static void LogError(string message) => Interface.Oxide.LogError($"[Tech Tree Control] {message}");
         public static void LogWarning(string message) => Interface.Oxide.LogWarning($"[Tech Tree Control] {message}");
 
-        private static bool HasUnlockPath(BasePlayer player, NodeInstance node, TechTreeData techTree, BlueprintRuleset blueprintRuleset)
+        // Since hooks don't know which tech tree level was requested, find whichever tech tree contains the requested node.
+        private static TechTreeData FindTechTreeForNode(Workbench workbench, NodeInstance node)
         {
-            if (node.inputs.Count == 0)
-                return true;
+            var techTreeList = workbench.GetTechTrees();
+            if (techTreeList == null)
+                return null;
 
-            var hasUnlockPath = false;
-
-            foreach (var inputNodeId in node.inputs)
+            foreach (var techTree in techTreeList)
             {
-                var inputNode = techTree.GetByID(inputNodeId);
-                if (inputNode.itemDef == null)
-                {
-                    // This input node appears to be an entry node, so consider it unlocked.
-                    return true;
-                }
-
-                if (!techTree.HasPlayerUnlocked(player, inputNode) && !blueprintRuleset.IsOptional(inputNode.itemDef))
-                {
-                    // This input node does not provide an unlock path.
-                    // Continue iterating the other input nodes in case they provide an unlock path.
-                    continue;
-                }
-
-                if (HasUnlockPath(player, inputNode, techTree, blueprintRuleset))
-                {
-                    hasUnlockPath = true;
-                }
+                if (techTree.nodes.Contains(node))
+                    return techTree;
             }
 
-            return hasUnlockPath;
+            return null;
         }
 
         private bool HasPermissionToUnlockAny(BasePlayer player, TechTreeData techTree)
@@ -190,6 +210,43 @@ namespace Oxide.Plugins
                 return permission.UserHasPermission(player.UserIDString, PermissionAnyOrderIO);
 
             return false;
+        }
+
+        private int DetermineUnlockCost(TechTreeData techTree, List<NodeInstance> nodesToUnlock, out int currencyItemId)
+        {
+            // Calculate total cost.
+            var totalCost = 0;
+            currencyItemId = _config.IsCustomCurrencyEnabledAndValid
+                ? _config.CustomCurrency.ItemId
+                : ItemManager.FindItemDefinition("scrap").itemid;
+
+            foreach (var nodeToUnlock in nodesToUnlock)
+            {
+                if (nodeToUnlock.itemDef == null)
+                    continue;
+
+                var costOverride = _config.GetResearchCostOverride(nodeToUnlock.itemDef);
+                int nodeCost;
+
+                if (costOverride is int overrideCost)
+                {
+                    nodeCost = overrideCost;
+                    var taxRate = ConVar.Server.GetTaxRateForWorkbenchUnlock(techTree.techTreeLevel);
+                    if (taxRate > 0)
+                    {
+                        nodeCost += Mathf.CeilToInt(nodeCost * (taxRate / 100f));
+                    }
+                }
+                else
+                {
+                    nodeCost = Workbench.ScrapForResearch(nodeToUnlock.itemDef, techTree.techTreeLevel, out var tax);
+                    nodeCost += tax;
+                }
+
+                totalCost += nodeCost;
+            }
+
+            return totalCost;
         }
 
         #endregion
@@ -265,6 +322,8 @@ namespace Oxide.Plugins
             private HashSet<int> _allowedBlueprints = new();
             private HashSet<int> _disallowedBlueprints = new();
             private HashSet<int> _blueprintsWithNoPrerequisites = new();
+
+            public bool HasOptionals => _optionalBlueprints.Count > 0;
 
             public void Init(TechTreeControl plugin)
             {
