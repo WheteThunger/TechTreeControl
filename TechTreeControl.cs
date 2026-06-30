@@ -10,7 +10,7 @@ using static TechTreeData;
 
 namespace Oxide.Plugins
 {
-    [Info("Tech Tree Control", "WhiteThunder", "0.6.0")]
+    [Info("Tech Tree Control", "WhiteThunder", "0.6.1")]
     [Description("Allows customizing Tech Tree research requirements.")]
     internal class TechTreeControl : CovalencePlugin
     {
@@ -165,11 +165,6 @@ namespace Oxide.Plugins
             }
 
             return False;
-        }
-
-        private object OnResearchCostDetermine(ItemDefinition itemDefinition)
-        {
-            return _config.GetResearchCostOverride(itemDefinition);
         }
 
         #endregion
@@ -438,9 +433,7 @@ namespace Oxide.Plugins
 
             public object GetResearchCostOverride(ItemDefinition itemDefinition)
             {
-                return _researchCostByItemId.TryGetValue(itemDefinition.itemid, out var costOverride)
-                    ? costOverride
-                    : null;
+                return _researchCostByItemId.GetValueOrDefault(itemDefinition.itemid);
             }
 
             public BlueprintRuleset GetPlayerBlueprintRuleset(TechTreeControl plugin, string userIdString)
